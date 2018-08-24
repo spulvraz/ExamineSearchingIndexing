@@ -1,0 +1,121 @@
+﻿@inherits Umbraco.Web.Macros.PartialViewMacroPage
+@using Examine.LuceneEngine.SearchCriteria
+@using Examine.Providers
+@using Examine.SearchCriteria
+@using ExamineBootcamp.BusinessLogic.Extensions
+@using Umbraco.Web
+@helper RenderResults(ISearchResults results, UmbracoHelper umbraco)
+{
+    <ul>
+        @foreach (var result in results)
+        {
+            if (result.Fields.ContainsKey("__IndexType") && result.Fields["__IndexType"].ToLower() == "media")
+            {
+                var media = umbraco.TypedMedia(result.Id);
+                <li>
+                    <a href="@media.Url">@media.Name</a>
+                    <br />Relevance - (@result.Score)<br />
+                    created - @(media.CreateDate.ToString())
+                </li>
+            }
+            else
+            {
+
+                var node = umbraco.TypedContent(result.Id);
+                <li>
+                    <a href="@node.Url">@node.Name</a>
+                    <br />Relevance - (@result.Score)<br />
+                    @{
+                        var reviewDate = node.GetPropertyValue<DateTime>("reviewDate");
+                        if (reviewDate == DateTime.MinValue)
+                        {
+                            reviewDate = node.UpdateDate;
+                        }
+                    }
+                    Review date - @(reviewDate.ToString())
+                </li>
+                            }
+                        }
+    </ul>
+
+}
+@{
+    BaseSearchProvider _searcher;
+
+    string fieldToSearch = "contents";
+    string HideFromNavigation = "umbracoNaviHide";
+
+    var umbraco = Umbraco;
+
+    IPublishedContent currentNode = Model.Content;
+
+    bool isChinese = currentNode.GetCulture().TwoLetterISOLanguageName.ToLower().Contains("zh");
+
+
+    //if we on chinese use use chinese searcher
+    if (isChinese)
+    {
+        _searcher = ExamineManager.Instance.SearchProviderCollection["External_CN_Searcher"];
+    }
+    else
+    {
+        _searcher = ExamineManager.Instance.SearchProviderCollection["ExternalSearcher"];
+    }
+
+    var criteria = _searcher.CreateSearchCriteria(BooleanOperation.And);
+
+    var searchTerm = string.Empty;
+
+    searchTerm = string.IsNullOrEmpty(Request["query"]) ? string.Empty : Request["query"];
+    searchTerm = searchTerm.MakeSearchQuerySafe();
+    if (searchTerm == string.Empty)
+    {
+        <p>Enter search term</p>
+    }
+    else
+    {
+
+        var siteRootId = Model.Content.Site().Id;
+        var examineQuery = criteria.Field("searchablePath", siteRootId.ToString());
+        examineQuery.Not().Field(HideFromNavigation, 1.ToString());
+
+        if (searchTerm.Contains(" "))
+        {
+            var terms = searchTerm.Split(' ').Select(x => x.MultipleCharacterWildcard()).ToArray();
+            examineQuery.And().GroupedOr(new List<string> { fieldToSearch, "FileTextContent" }, terms);
+        }
+        else
+        {
+            if (isChinese)
+            {
+                //wildcarding in chinese does not make sense as its not english
+                //also we have swapped to body text field as we have NOT implemented gathering node for chinese
+                examineQuery.And().GroupedOr(new List<string> {
+                "bodyText" ,"FileTextContent"}, searchTerm);
+            }
+            else
+            {
+                examineQuery.And().GroupedOr(new List<string> {
+                fieldToSearch ,"FileTextContent"},
+              searchTerm.MultipleCharacterWildcard());
+            }
+
+
+        }
+
+        examineQuery.And().OrderByDescending("reviewDate");
+
+        var results = _searcher.Search(examineQuery.Compile());
+
+        <p>@criteria.ToString()</p>
+        if (results.TotalItemCount>0)
+        {
+            <p>You search for "<strong>@searchTerm</strong>" found @results.Count() results</p>
+            @RenderResults(results, umbraco)
+        }
+        else
+        {
+            <p>No results found for query @searchTerm</p>
+        }
+    }
+}

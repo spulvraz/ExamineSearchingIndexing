@@ -1,0 +1,258 @@
+﻿@using Examine.LuceneEngine.SearchCriteria
+@using Examine.Providers
+@using Examine.SearchCriteria
+@using ExamineBootcamp.BusinessLogic.Extensions
+@using UmbracoExamine
+
+@inherits Umbraco.Web.Macros.PartialViewMacroPage
+
+@helper RenderResults(ISearchResults results, UmbracoHelper umbraco)
+  {
+    /*
+    <ul>
+      @foreach (var result in results)
+      {
+        var node = umbraco.TypedContent(result.Id);
+      <li>
+        <a href="@node.Url">@node.Name</a>
+        @*Score is Not NaN after sorting on createDate>*@
+        <br />Relevance - (@result.Score)<br />
+
+        @*when this page 'content' was created*@
+        Date created - @node.CreateDate
+        @*<br />*@
+        @*when this page 'content' was updated*@
+        @*Date updated: @node.UpdateDate*@
+        <br />
+        @*ex. 5 display review Date - a custom filed added 'content' *@
+        @*Review date (custom field): @(node.GetPropertyValue<DateTime>("reviewDate").ToString())*@
+
+        @*ex. 6 if the search doesn't have a review date then use the system field display 'UpdateDate'*@
+        @{
+            var reviewdate = node.GetPropertyValue<DateTime>("reviewDate");
+
+            //01/01/0001 00:00:00 min value
+            if (reviewdate == DateTime.MinValue)
+            {
+              reviewdate = node.UpdateDate;
+            }
+        }
+
+        Review date (custom field): @( reviewdate.ToString() )
+
+      </li>
+     }
+    </ul>
+    */
+
+  <ul>
+    @*  ex. 8 media and front end text content parsed *@
+    @foreach (var result in results)
+    {
+
+      //MEDIA content - (media index)
+      if (result.Fields.ContainsKey("__IndexType") && result.Fields["__IndexType"].ToLower() == "media")
+      {
+        var media = umbraco.TypedMedia(result.Id);
+
+        <li>
+          <h4>
+            <a href="@media.Url">@media.Name</a>
+            <span style="color: orange">(MEDIA text content)</span>
+          </h4>
+          <p>
+            Relevance - (@result.Score)
+            <br/>
+            created @media.CreateDate.ToString()
+          </p>
+        </li>
+      }
+      else
+      {
+        //WEB SITE_frontend text content - (no media external index)
+        var node = umbraco.TypedContent(result.Id);
+        var newsItemAlias = node.DocumentTypeAlias;        //umbNewsItem news item alias
+        <li>
+          <h4>
+            <a href="@node.Url">@node.Name</a>
+  
+            @if (newsItemAlias == "umbNewsItem")
+            {
+            <span style="color: blueviolet">(page NEWS-ITEM text content)</span>
+            }
+            else
+            {
+              <span style="color:cadetblue">(WEB_PAGE text content)</span>
+            }
+          </h4>
+          <p>
+            Relevance - (@result.Score)
+            
+            @{
+              var reviewDate = node.GetPropertyValue<DateTime>("reviewDate", node.UpdateDate);
+            }
+            <br/>
+            Review date: @( reviewDate.ToString())
+          </p>
+        </li>
+      }
+    }
+  </ul>
+}
+
+@{
+    try
+    {
+
+      var umbraco = Umbraco;
+
+      //BEFORE ex. 10
+      //BaseSearchProvider _searcher = ExamineManager.Instance.SearchProviderCollection["ExternalSearcher"];
+      //ex. 10 can be EN can be ZN
+      BaseSearchProvider _searcher;
+
+      //ex. 10
+      IPublishedContent currentNode = Model.Content;
+
+      bool isChinese = currentNode.GetCulture().TwoLetterISOLanguageName.ToLower().Contains("zh");
+
+      //if we on chinese use use chinese searcher
+      if (isChinese)
+      {
+        _searcher = ExamineManager.Instance.SearchProviderCollection["External_CN_Searcher"];
+      }
+      else
+      {
+        _searcher = ExamineManager.Instance.SearchProviderCollection["ExternalSearcher"];
+      }
+
+      string HideFromNavigation = "umbracoNaviHide";
+
+      //ex.1
+      //string fieldToSearch = "bodyText";
+
+      //ex. 2
+      string fieldToSearch = "contents";
+
+      //var criteria = _searcher.CreateSearchCriteria(IndexTypes.Content);
+      //ex. 8
+      var criteria = _searcher.CreateSearchCriteria(BooleanOperation.And);
+
+      //ex 1
+      //var criteria = _searcher.CreateSearchCriteria(IndexTypes.Content, BooleanOperation.Or);
+
+      //var searchTerm = string.Empty;
+      var searchTerm = string.IsNullOrEmpty(Request["query"]) ? string.Empty : Request["query"];
+      //ex. 4 allowa special caracters as *
+      searchTerm = searchTerm.MakeSearchQuerySafe();
+
+      var url = Request["query"];
+
+      if (searchTerm == string.Empty)
+      {
+      <p>Enter search term</p>
+      }
+      else
+      {
+      <p>The query string parameter for the search is: "@url" !!!</p>
+
+        //var examineQuery = criteria.Field(fieldToSearch, searchTerm);
+
+        ////this will disable index search on the search page because the search page is hidden from the navigation
+        ////if I put it comment the search will be activated on the page search too and the acid' found will be in 5 pages (all the text page available where I added the content to each)
+        //examineQuery.Not().Field(HideFromNavigation, 1.ToString());
+
+        ////ex1 added new field 'secondaryContent' in the text page datatype and also content has been added to each page of type text page (5 pages)
+        ////examineQuery.Or().Field("secondaryContent", searchTerm);
+
+        //var results = _searcher.Search(examineQuery.Compile());
+
+        ////ex. 3 - replace above tree lines with here below
+        //var siteRootId = Model.Content.Site().Id;
+        //var examineQuery = criteria.Field(fieldToSearch, searchTerm);
+        //examineQuery.Not().Field(HideFromNavigation, 1.ToString());           //comment: then include search page to be indexed
+        //examineQuery.And().Field("searchablePath", siteRootId.ToString());
+        //var results = _searcher.Search(examineQuery.Compile());
+        //// ex. 3
+
+        //ex.4
+        var siteRootId = Model.Content.Site().Id;
+        var examineQuery = criteria.Field("searchablePath", siteRootId.ToString());
+
+        //ex. 5 sorting on system field
+        //examineQuery.And().OrderByDescending("createDate");
+
+        //ex. 5 sorting on custom field added in umbraco BOffice
+        examineQuery.And().OrderByDescending("reviewDate");
+
+        examineQuery.Not().Field(HideFromNavigation, 1.ToString());           //text content in Search page is not included
+
+        if (searchTerm.Contains(" ")) //if the popped term contains spaces e.g. in "central government"
+        {
+          ////> then split in terms into and array
+          //string[] terms = searchTerm.Split(' ');
+          ////search in field 'contents' add AND this query with OR
+          //examineQuery.And().GroupedOr(new List<string>{ fieldToSearch }, terms);
+
+          //using wildchar * for the term in grouping terms
+          IExamineValue[] terms = searchTerm.Split(' ').Select(t => t.MultipleCharacterWildcard()).ToArray();
+          examineQuery.And().GroupedOr(new List<string> { fieldToSearch }, terms);
+        }
+        else
+        {
+          //search as it was in ex 3
+          //examineQuery.And().Field(fieldToSearch, searchTerm.MultipleCharacterWildcard());  //allow use wildcard 'govern*'
+          //what if the search term is a Lucene special caracter as *? this will rise and error in here
+
+          //ex. 8 multi indexing on published content (externaIndexes) and PDFs content
+          //examineQuery.And()
+          //  .GroupedOr(
+          //    new List<string> { fieldToSearch, "FileTextContent" },
+          //    searchTerm.MultipleCharacterWildcard()
+          //  );
+
+          //ex. 10
+          if (isChinese)
+          {
+            //毛泽东发动文革50周年之际
+            //http://examinebootcamp.zh/
+            <p style="color: red">THIS IS CHINESE text</p>
+            //wildcarding in chinese does not make sense as its not english
+            //also we have swapped to body text field as we have NOT implemented gathering node for chinese
+            examineQuery.And().GroupedOr(new List<string> { "bodyText" ,"FileTextContent" }, searchTerm);
+          }
+          else
+          {
+            //EN
+            //http://examinebootcamp.co.uk
+            <p style="color:blue">THIS IS EN text content</p>
+            examineQuery.And().GroupedOr(new List<string> { fieldToSearch ,"FileTextContent"}, searchTerm.MultipleCharacterWildcard());
+          }
+
+        }
+
+        var results = _searcher.Search(examineQuery.Compile());
+
+        //ex. 4 debug investigate LuceneNet query syntax
+        <h6 style="color:green"> @criteria.ToString()</h6>
+
+        if (results.TotalItemCount > 0)
+        {
+          <p>You search for "<strong>@searchTerm</strong>" found @results.Count() results:</p>
+          @RenderResults(results, Umbraco)
+        }
+        else
+        {
+          <p>No results found for query '@searchTerm'</p>
+        }
+
+      }
+    }
+    catch (Exception e)
+    {
+      //throw;
+      <h5 style="color:red">Error: '@e.Message'</h5>
+    }
+
+
+}

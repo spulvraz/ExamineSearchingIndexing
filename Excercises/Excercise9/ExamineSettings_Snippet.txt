@@ -1,0 +1,20 @@
+<!-- add to ExamineIndexProviders -->
+
+<add name="TownIndexer"
+            type="Examine.LuceneEngine.Providers.SimpleDataIndexer, Examine"
+            indexSet="ukTownsIndexSet"
+            dataService="ExamineBootcamp.BusinessLogic.Indexer.DbIndexer,
+				ExamineBootcamp.BusinessLogic"
+           	analyzer="Lucene.Net.Analysis.Standard.StandardAnalyzer,	
+				Lucene.Net"
+            indexTypes="ukTown"
+            runAsync="true"/> 
+			
+<!-- add to examine search providers  -->
+<add name="TownSearcher"
+         	type="Examine.LuceneEngine.Providers.LuceneSearcher, Examine"
+         	indexSet="ukTownsIndexSet"
+		analyzer="Lucene.Net.Analysis.Standard.StandardAnalyzer, 
+				Lucene.Net" /> 
+
+			

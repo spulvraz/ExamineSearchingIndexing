@@ -1,0 +1,5 @@
+<add name="ExternalSearcher"
+ type="Examine.LuceneEngine.Providers.MultiIndexSearcher, Examine"
+ analyzer="Lucene.Net.Analysis.Standard.StandardAnalyzer, Lucene.Net"
+ enableLeadingWildcards="true"
+ indexSets="ExternalIndexSet,PDFIndexSet" />

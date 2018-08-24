@@ -1,0 +1,14 @@
+<!--  add to indexer part in examinesettings.config -->
+   <add name="External_CN_Indexer"
+          type="UmbracoExamine.UmbracoContentIndexer, UmbracoExamine"
+              supportUnpublished="false"
+              supportProtected="false"
+              interval="10"
+              analyzer="Lucene.Net.Analysis.Cn.ChineseAnalyzer, 
+						Lucene.Net.Contrib.Analyzers"/>
+						
+<!--  add to searcher part in examinesettings.config -->
+<add name="External_CN_Searcher"
+        type="UmbracoExamine.UmbracoExamineSearcher, UmbracoExamine"
+          analyzer="Lucene.Net.Analysis.Cn.ChineseAnalyzer, 
+						Lucene.Net.Contrib.Analyzers"/>
